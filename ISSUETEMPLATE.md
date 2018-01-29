@@ -1,5 +1,5 @@
-<!-- This is a template to reporting issues. You can copy and paste this template to create your issue -->
-
+<!-- This is a template to reporting issues.-->
+**You can copy and paste this template to create your issue ** 
 ### What kind of an issue is it?
 <!-- These [ ] are checkboxes, they can be checked like so [x] -->
 - [ ] Crash
