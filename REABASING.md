@@ -84,4 +84,20 @@ After you've successfully rebased, you can push to your branch by running
 ```sh
 $ git push --force
 ```
+This will update origin with your commits ontop of the master branch, which will have no merge conflicts.
+**NOTE: Please do not push directly onto master yourself, work in your own branches.**
 
+# How to make a merge request
+Once you are done with your branch and it's ready to be merged into master, make sure that your changes are rebased ontop of master branch and have no merge conflicts.
+Then you can go to our [github repo's branches](https://github.com/phgupta/Trash-Classification/branches), and pressing "New pull request" button. You will be brought to this screen. Here you can type out a name and a description for your merge request. Also **assign someone to review your changes**, and notify them via slack or other way that they have a merge request to look over. So we can all keep track of code quality and what gets merged into master.
+# Reviewing a merge Request
+If you are chosen to review a merge request do your best to check the code, make sure no merge conflicts exists. 
+You can approve a merge request that:
+1. Do not have merge conflicts
+2. See 
+3. The merge request is not behind master. (**NOTE That means other people have updated the master before you and you don't have all the features; in that case you will rebase again and make a new merge request**)
+If all looks good, you can press "Rebase and merge".
+
+# How to report an issue
+To be organized, we should track all our project issues in one place. Thus, to report an issue go to [issues section on our repo](https://github.com/phgupta/Trash-Classification/issues).
+Here you can press "New issue" to create a new issue. Fill out a title for the issue, and in the description be as detailed as possible to recreate the issue and explain what the issue is. I'll add a issue template.
