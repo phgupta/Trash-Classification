@@ -1,4 +1,6 @@
-# Trash-Classification
+# Trash-Classification 
+
+## To Do
 
 1. Change collect_split_data() to implement the following dataset structure,
     Dataset -> Compost -> one.jpg, two.jpg, ...
