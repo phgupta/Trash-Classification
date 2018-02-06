@@ -32,7 +32,7 @@ def readData():
 [x,y] = readData()
 x = np.asarray(x)
 # pca
-cv = KFold(n_splits = 10, random_state = 43)
+cv = KFold(n_splits = 10, shuffle = True, random_state = 100)
 for index_train, index_test in cv.split(x):
     trainsize = index_train.size
     testsize = index_test.size
