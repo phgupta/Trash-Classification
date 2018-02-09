@@ -108,7 +108,7 @@ def classifier(train_dataset, test_dataset, train_labels, test_labels, trainsize
           print(step)
           offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
           batch_data = train_dataset[offset:(offset + batch_size), :, :, :]
-          batch_labels = train_labels[offset:(offset + batch_size), :]
+          batch_labels = train_labels[offset:(offset + batch_size), :]    
           feed_dict = {tf_train_dataset : batch_data, tf_train_labels : batch_labels}
           _, l, predictions = session.run(
               [optimizer, loss, train_prediction], feed_dict=feed_dict)
