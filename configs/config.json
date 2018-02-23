@@ -1,0 +1,12 @@
+
+{
+  "PROJECT": "smart_trash",
+  "PATH_TO_DATA": "./dataset-resized",
+  "NUM_EPOCHS": 5,
+  "NUM_ITER_PER_EPOCH": 10,
+  "LEARNING_RATE": 0.001,
+  "BATCH_SIZE": 5,
+  "TRAIN_SIZE": 0.6,
+  "TEST_SIZE" : 0.2,
+  "VAL_SIZE" : 0.2
+}
