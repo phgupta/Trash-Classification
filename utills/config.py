@@ -18,7 +18,6 @@ def get_config_from_json(json_file):
 
     return config, config_dict
 
-
 def process_config(jsonfile):
     config, _ = get_config_from_json(jsonfile)
     config.summary_dir = os.path.join("../experiments", config.PROJECT, "summary/")
@@ -28,7 +27,6 @@ def process_config(jsonfile):
 def main():
     # Example get config
     config = process_config("./../configs/config.json")
-
 
 if __name__ == "__main__":
     main()

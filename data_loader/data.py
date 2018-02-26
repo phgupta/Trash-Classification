@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
-from utills.config import process_config
 import itertools
 from enum import Enum
 
@@ -116,20 +115,3 @@ class Data(object):
                 train.append(index_train)
                 test.append(index_test)
             return train, test
-
-def main():
-    # Parse the config file
-    config = process_config("././configs/config.json")
-    assert os.path.isdir(config.PATH_TO_DATA)
-    # Only keeping one instance of data
-    data = Data.getInstance(config)
-    files = data.collect_split_data(CATEGORY.paper, CATEGORY.metal)
-    # data.getLabeledImages()
-    # labledImages = data.getImagesByLabel(0,1,2)
-    # data.splitData()
-    # data.getCrossFolds()
-
-    return 0
-
-if __name__ == "__main__":
-    main()
