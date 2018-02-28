@@ -9,5 +9,6 @@
   "TRAIN_SIZE": 0.6,
   "TEST_SIZE" : 0.2,
   "VAL_SIZE" : 0.2,
-  "IMAGE_SIZE": 256
+  "IMAGE_SIZE": 256,
+  "MAX_TO_KEEP": 5
 }

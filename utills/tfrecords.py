@@ -13,6 +13,7 @@ class TfrecordsUtils(object):
     def __init__(self, Data):
         self.data = Data
         self.config = Data.config
+        self.CreateTfrecords()
 
     def load_image(self, filepath):
         # Read, resize and convert to RGB (since cv2 loads images as BGR)
