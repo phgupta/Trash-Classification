@@ -65,3 +65,48 @@ class CovNetModel(BaseModel):
             preactivation = tf.nn.bias_add(conv, bias)
             conv2d_layer3 = tf.nn.relu(preactivation, name=scope.name)
 
+        with tf.variable_scope('layer4') as scope:
+            filter = self._create_weights([3, 3, 288, 288])
+            bias = self._create_bias([288])
+            conv = self._create_conv2d(conv2d_layer3,filter,
+                                       strides = [1,1,1,1])
+            preactivation = tf.nn.bias_add(conv, bias)
+            conv2d_layer4 = tf.nn.relu(preactivation, name=scope.name)
+
+        with tf.variable_scope('layer5') as scope:
+            filter = self._create_weights([3, 3, 288, 192])
+            bias = self._create_bias([288])
+            conv = self._create_conv2d(conv2d_layer4,filter,
+                                       strides = [1,1,1,1])
+            preactivation = tf.nn.bias_add(conv, bias)
+            conv2d_layer5 = tf.nn.relu(preactivation, name=scope.name)
+
+        flattened_layer = tf.reshape(conv2d_layer5, [-1, 8 * 8 * 192])
+
+        # First fully connected layer
+        with tf.variable_scope('fully_connected_1') as scope:
+            weight = tf.Variable(tf.truncated_normal([8 * 8 * 192, 4096], stddev=0.03))
+            bias = tf.Variable(tf.truncated_normal([4096], stddev=0.01))
+            layer = tf.matmul(flattened_layer, weight)
+            fc1 = tf.nn.bias_add(layer, bias)
+
+
+        # Second fully connected layer
+        with tf.variable_scope('fully_connected_2') as scope:
+            weight = tf.Variable(tf.truncated_normal([8 * 8 * 192, 4096], stddev=0.03))
+            bias = tf.Variable(tf.truncated_normal([4096], stddev=0.01))
+            layer = tf.matmul(fc1, weight)
+            fc2 = tf.nn.bias_add(layer, bias)
+
+        # Third fully connected layer
+        with tf.variable_scope('fully_connected_2') as scope:
+            weight = tf.Variable(tf.truncated_normal([8 * 8 * 192, 4096], stddev=0.03))
+            bias = tf.Variable(tf.truncated_normal([4096], stddev=0.01))
+            layer = tf.matmul(fc2, weight)
+            fc3 = tf.nn.bias_add(layer, bias)
+
+        self.prediction = tf.nn.softmax(fc3)
+
+
+
+
