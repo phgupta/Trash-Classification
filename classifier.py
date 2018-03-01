@@ -44,9 +44,19 @@ def classifier(train_dataset, test_dataset, train_labels, test_labels, trainsize
         cnn2_W = tf.Variable(tf.truncated_normal(
             [patch_size, patch_size, depth, depth], stddev=0.1))
         cnn2_b = tf.Variable(tf.constant(1.0, shape=[depth]))
+        
+        # CNN layer 2 with filter (depth, depth) (16, 16)
+        cnn3_W = tf.Variable(tf.truncated_normal(
+            [patch_size, patch_size, depth, depth], stddev=0.1))
+        cnn3_b = tf.Variable(tf.constant(1.0, shape=[depth]))
+        
+        cnn4_W = tf.Variable(tf.truncated_normal(
+            [patch_size, patch_size, depth, depth], stddev=0.1))
+        cnn4_b = tf.Variable(tf.constant(1.0, shape=[depth]))
+        
 
         # Compute the output size of the CNN2 as a 1D array.
-        size = image_size1 // 4 * image_size2 // 4 * depth
+        size = image_size1 // 16 * image_size2 // 16 * depth
 
         # FC1 (size, num_hidden1) (size, 256)
         fc1_W = tf.Variable(tf.truncated_normal(
@@ -75,10 +85,18 @@ def classifier(train_dataset, test_dataset, train_labels, test_labels, trainsize
             conv2 = tf.nn.conv2d(pool1, cnn2_W, [1, 1, 1, 1], padding='SAME')
             hidden2 = tf.nn.relu(conv2 + cnn2_b)
             pool2 = tf.nn.max_pool(hidden2, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
+            
+            conv3 = tf.nn.conv2d(pool2, cnn3_W, [1, 1, 1, 1], padding='SAME')
+            hidden3 = tf.nn.relu(conv3 + cnn3_b)
+            pool3 = tf.nn.max_pool(hidden3, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
+            
+            conv4 = tf.nn.conv2d(pool3, cnn4_W, [1, 1, 1, 1], padding='SAME')
+            hidden4 = tf.nn.relu(conv4 + cnn4_b)
+            pool4 = tf.nn.max_pool(hidden4, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
 
             # Flattern the convolution output
-            shape = pool2.get_shape().as_list()
-            reshape = tf.reshape(pool2, [shape[0], shape[1] * shape[2] * shape[3]])
+            shape = pool4.get_shape().as_list()
+            reshape = tf.reshape(pool4, [shape[0], shape[1] * shape[2] * shape[3]])
 
             # 2 FC hidden layers
             fc1 = tf.nn.relu(tf.matmul(reshape, fc1_W) + fc1_b)
