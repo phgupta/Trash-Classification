@@ -24,7 +24,6 @@ IMG_SHAPE = (IMG_SIZE, IMG_SIZE)
 
 ################### Collect & Split Data ###################
 def collect_split_data():
-    print("collect_split_data()")
 
     labels = []
     files = glob.glob(DATASET_PATH)
@@ -68,7 +67,6 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 def create_tfrecord(files, labels, fname):
-    print("create_tfrecord(" + fname + ")")
     start_time = time.time()
 
     # Open .tfrecords file
@@ -98,7 +96,6 @@ def create_tfrecord(files, labels, fname):
 
 
 def create_tfrecords(train_img, train_labels, test_img, test_labels):
-    print("create_tfrecords()")
     create_tfrecord(train_img, train_labels, 'train')
     create_tfrecord(test_img, test_labels, 'test')
 

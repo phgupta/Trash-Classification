@@ -26,19 +26,20 @@ NUM_THREADS = 4
 MIN_AFTER_DEQUEUE = 10
 LEARNING_RATE = 1e-4
 
-NUM_EPOCHS = 100
-ACC_COUNT = 10
+NUM_EPOCHS = 5
+TEST_NUM_EPOCHS = 10
+ACC_COUNT = 2
 
 
 ################### Get next batch ###################
 def read_from_tfrecords(fname):
-    print("read_from_tfrecords(" + fname + ")")
 
     file = glob.glob(fname+'.tfrecords')
     feature = { fname+'/image': tf.FixedLenFeature([], tf.string),
                 fname+'/label': tf.FixedLenFeature([], tf.int64) }
 
     # Enqueue train.tfrecords
+    # 'num_epochs=None' ensures that tf.train.shuffle_batch() can be called indefinitely
     filename_queue = tf.train.string_input_producer(file, num_epochs=None)
 
     # Define reader and read file from queue
@@ -57,23 +58,15 @@ def read_from_tfrecords(fname):
 
     return image, label
 
-def next_batch():
-    print("next_batch()")
-    start_time = time.time()
+def next_batch(fname):
 
     # CHECK: Need to compute image, label everytime or nah?
-    image, label = read_from_tfrecords('train')
-
+    image, label = read_from_tfrecords(fname)
     image_batch, label_batch = tf.train.shuffle_batch([image, label], batch_size=TRAIN_BATCH_SIZE, capacity=CAPACITY, 
                                                 num_threads=NUM_THREADS, min_after_dequeue=MIN_AFTER_DEQUEUE, 
                                                 allow_smaller_final_batch=True)
-
     label_batch = tf.one_hot(label_batch, NUM_CLASSES)
 
-    end_time = time.time()
-    time_diff = end_time - start_time
-    print("Time usage: " + str(timedelta(seconds=int(round(time_diff)))))
-    
     return image_batch, label_batch
 
 
@@ -130,6 +123,39 @@ def model():
 
 
 ################### Main Function ###################
+# def test_accuracy():
+#     coord = tf.train.Coordinator()
+#     threads = tf.train.start_queue_runners(coord=coord)
+#     start_time = time.time()    
+
+#     for i in range(TEST_NUM_EPOCHS):
+#         print("Test iteration: " + str(i))
+
+#         x_test_batch, y_test_batch = sess.run([test_img_batch, test_lbl_batch])
+#         feed_dict_test = {
+#             x_image: x_test_batch,
+#             y_true: y_test_batch
+#         }
+#         cls_y_pred, cls_y_true = sess.run([y_pred_cls, y_true_cls], feed_dict=feed_dict_test)
+
+#         feed_dict_test_acc = {
+#             y_pred_cls: cls_y_pred,
+#             y_true_cls: cls_y_true
+#         }
+#         test_accuracy = sess.run(accuracy, feed_dict=feed_dict_test_acc)
+
+#         msg = "Accuracy on Test-Set: {0:.1%}"
+#         print(msg.format(test_accuracy))
+    
+
+#     coord.request_stop()
+#     coord.join(threads)
+
+#     end_time = time.time()
+#     time_dif = end_time - start_time
+#     print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+
+
 def optimize():
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
@@ -167,7 +193,8 @@ y_true_cls = tf.argmax(y_true, dimension=1)
 
 
 ################### Optimization ###################
-img_batch, lbl_batch = next_batch()
+img_batch, lbl_batch = next_batch('train')
+test_img_batch, test_lbl_batch = next_batch('test')
 model_output = model()
 cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=model_output, labels=y_true)
 cost = tf.reduce_mean(cross_entropy)
@@ -189,6 +216,7 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     total_iterations = 0
     optimize()
+    # test_accuracy()
 
 
 ################### Comments ###################
