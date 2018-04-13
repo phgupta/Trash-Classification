@@ -17,6 +17,7 @@ def classifier(z, precision, recall, falsepos, train_dataset, test_dataset, trai
     depth = 16
     num_hidden1 = 256
     num_hidden2 = 64
+    num_hidden3 = 16
     num_channels = 3
     num_labels = 4
       
@@ -104,8 +105,16 @@ def classifier(z, precision, recall, falsepos, train_dataset, test_dataset, trai
             [patch_size, patch_size, depth, depth], stddev=0.1))
         cnn2_b = tf.Variable(tf.constant(1.0, shape=[depth]))
 
+        cnn3_W = tf.Variable(tf.truncated_normal(
+            [patch_size, patch_size, depth, depth], stddev=0.1))
+        cnn3_b = tf.Variable(tf.constant(1.0, shape=[depth]))
+
+        cnn4_W = tf.Variable(tf.truncated_normal(
+            [patch_size, patch_size, depth, depth], stddev=0.1))
+        cnn4_b = tf.Variable(tf.constant(1.0, shape=[depth]))
+
         # Compute the output size of the CNN2 as a 1D array.
-        size = image_size1 // 4 * image_size2 // 4 * depth
+        size = image_size1 // 16 * image_size2 // 16 * depth
 
         # FC1 (size, num_hidden1) (size, 256)
         fc1_W = tf.Variable(tf.truncated_normal(
@@ -117,9 +126,13 @@ def classifier(z, precision, recall, falsepos, train_dataset, test_dataset, trai
             [num_hidden1, num_hidden2], stddev=np.sqrt(2.0 / (num_hidden1))))
         fc2_b = tf.Variable(tf.constant(1.0, shape=[num_hidden2]))
 
+        fc3_W = tf.Variable(tf.truncated_normal(
+            [num_hidden2, num_hidden3], stddev=np.sqrt(2.0 / (num_hidden2))))
+        fc3_b = tf.Variable(tf.constant(1.0, shape=[num_hidden3]))
+
         # Classifier (num_hidden2, num_labels) (64, 10)
         classifier_W = tf.Variable(tf.truncated_normal(
-            [num_hidden2, num_labels], stddev=np.sqrt(2.0 / (num_hidden2))))
+            [num_hidden3, num_labels], stddev=np.sqrt(2.0 / (num_hidden3))))
         classifier_b = tf.Variable(tf.constant(1.0, shape=[num_labels]))
 
         # Model.
@@ -135,16 +148,25 @@ def classifier(z, precision, recall, falsepos, train_dataset, test_dataset, trai
             hidden2 = tf.nn.relu(conv2 + cnn2_b)
             pool2 = tf.nn.max_pool(hidden2, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
 
+            conv3 = tf.nn.conv2d(pool2, cnn3_W, [1, 1, 1, 1], padding='SAME')
+            hidden3 = tf.nn.relu(conv3 + cnn3_b)
+            pool3 = tf.nn.max_pool(hidden3, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
+
+            conv4 = tf.nn.conv2d(pool3, cnn4_W, [1, 1, 1, 1], padding='SAME')
+            hidden4 = tf.nn.relu(conv4 + cnn4_b)
+            pool4 = tf.nn.max_pool(hidden4, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME')
+
             # Flattern the convolution output
-            shape = pool2.get_shape().as_list()
-            reshape = tf.reshape(pool2, [shape[0], shape[1] * shape[2] * shape[3]])
+            shape = pool4.get_shape().as_list()
+            reshape = tf.reshape(pool4, [shape[0], shape[1] * shape[2] * shape[3]])
 
             # 2 FC hidden layers
             fc1 = tf.nn.relu(tf.matmul(reshape, fc1_W) + fc1_b)
             fc2 = tf.nn.relu(tf.matmul(fc1, fc2_W) + fc2_b)
+            fc3 = tf.nn.relu(tf.matmul(fc2, fc3_W) + fc3_b)
 
             # Return the result of the classifier
-            return tf.matmul(fc2, classifier_W) + classifier_b
+            return tf.matmul(fc3, classifier_W) + classifier_b
 
         # Training computation.
         logits = model(tf_train_dataset)
@@ -172,9 +194,9 @@ def classifier(z, precision, recall, falsepos, train_dataset, test_dataset, trai
           feed_dict = {tf_train_dataset : batch_data, tf_train_labels : batch_labels}
           _, l, predictions = session.run(
               [optimizer, loss, train_prediction], feed_dict=feed_dict)
-          
+          print(train_prediction)
           # Show training result
-          if ((step != 0) and (step % 50 == 0)):
+          if ((step != 0) and (step % 1 == 0)):
             plot_confusion_matrix(batch_labels, predictions)
             print('Minibatch loss at step %d: %f' % (step, l))
             print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
