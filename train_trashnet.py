@@ -1,44 +1,36 @@
-# Training Accuracy
-# Time: ~13min
-# 100 Iterations and training accuracy output at every 10th iteration
-# 28.1%, 43.8%, 46.9%, 53.1%, 53.1%, 68.8%, 53.1%, 62.5%, 65.6%, 68.8%
-
-
 import glob
 import time
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from datetime import timedelta
+from sklearn.metrics import confusion_matrix
 
 
 ################### Constants ###################
-CLASS_LABELS = ['cardboard', 'metal', 'paper']
-NUM_CLASSES = len(CLASS_LABELS)
-NUM_CHANNELS = 3 
-
-IMG_SIZE = 256
-IMG_SIZE_FLAT = IMG_SIZE * IMG_SIZE
-IMG_SHAPE_LIST = [IMG_SIZE, IMG_SIZE, NUM_CHANNELS]
-
-# FILTER_SIZE1 = 5
-# NUM_FILTERS1 = 16
-# FILTER_SIZE2 = 5
-# NUM_FILTERS2 = 36
-# FC_SIZE = 128
-
-BATCH_SIZE = 32
-CAPACITY = 100
-NUM_THREADS = 4
-MIN_AFTER_DEQUEUE = 10
-LEARNING_RATE = 1e-4
-
+# 1e-3 and 1e-4 are good!
+# LEARNING_RATE_LIST = [1e-2, 1e-3, 1e-4, 1e-5]
+LEARNING_RATE = 1e-5
+model_file_name = "Trashnet_FC4_" + str(LEARNING_RATE)
 NUM_EPOCHS = 100
 ACC_COUNT = 10
 
-MODEL_PATH = './Model_Info/Trashnet/model'
+MODEL_PATH = './Model_Info/' + model_file_name + '/model'
+CLASS_LABELS = ['cardboard', 'metal', 'paper', 'plastic', 'glass', 'trash']
+NUM_CLASSES = len(CLASS_LABELS)
+
+BATCH_SIZE = 32
+NUM_CHANNELS = 3 
+IMG_HEIGHT = 512
+IMG_WIDTH = 384
+IMG_SIZE_FLAT = IMG_HEIGHT * IMG_WIDTH
+IMG_SHAPE_LIST = [IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS]
+CAPACITY = 100
+NUM_THREADS = 4
+MIN_AFTER_DEQUEUE = 10
 
 
-################### Get next batch ###################
+################### Read data ###################
 def read_from_tfrecords(fname):
 
     file = glob.glob(fname+'.tfrecords')
@@ -67,7 +59,7 @@ def read_from_tfrecords(fname):
 
 def next_batch(fname):
 
-    # CHECK: Need to compute image, label everytime or nah?
+    # CHECK: Need to compute image, label everytime?
     image, label = read_from_tfrecords(fname)
     image_batch, label_batch = tf.train.shuffle_batch([image, label], batch_size=BATCH_SIZE, capacity=CAPACITY, 
                                                 num_threads=NUM_THREADS, min_after_dequeue=MIN_AFTER_DEQUEUE, 
@@ -145,67 +137,23 @@ def model():
 
     layer_fc1 = new_fc_layer(input=layer_flat, num_inputs=num_features, num_outputs=4096, use_relu=False)
     layer_fc2 = new_fc_layer(input=layer_fc1, num_inputs=4096, num_outputs=4096, use_relu=False)
-    layer_fc3 = new_fc_layer(input=layer_fc2, num_inputs=4096, num_outputs=3, use_relu=False)
+    layer_fc3 = new_fc_layer(input=layer_fc2, num_inputs=4096, num_outputs=4096, use_relu=False)
+    layer_fc4 = new_fc_layer(input=layer_fc3, num_inputs=4096, num_outputs=4096, use_relu=False)
+    layer_fc5 = new_fc_layer(input=layer_fc4, num_inputs=4096, num_outputs=NUM_CLASSES, use_relu=False)
 
-    return layer_fc3
-
-# def model():
-#     layer_conv1, weights_conv1 = new_conv_layer(input=x_image, num_input_channels=NUM_CHANNELS,
-#                                             filter_size=FILTER_SIZE1, num_filters=NUM_FILTERS1, use_pooling=True)
-#     layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1, num_input_channels=NUM_FILTERS1,
-#                                             filter_size=FILTER_SIZE2, num_filters=NUM_FILTERS2, use_pooling=True)
-
-#     layer_flat, num_features = flatten_layer(layer_conv2)
-#     layer_fc1 = new_fc_layer(input=layer_flat, num_inputs=num_features, num_outputs=FC_SIZE, use_relu=True)
-#     layer_fc2 = new_fc_layer(input=layer_fc1, num_inputs=FC_SIZE, num_outputs=NUM_CLASSES, use_relu=False)
-
-#     return layer_fc2
-
-
-################### Main Function ###################
-def train_model():
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord)
-    start_time = time.time()
-
-    for i in range(NUM_EPOCHS):
-        print("Iteration: " + str(i))
-
-        x_batch, y_true_batch = sess.run([img_batch, lbl_batch])
-        feed_dict_train = {
-            x_image: x_batch,
-            y_true: y_true_batch
-        }
-
-        sess.run(optimizer, feed_dict=feed_dict_train)
-
-        if (i % ACC_COUNT == 0):
-            acc = sess.run(accuracy, feed_dict=feed_dict_train)
-            msg = "Optimization Iteration: {0:>6}, Training Accuracy: {1:>6.1%}"
-            print(msg.format(i + 1, acc))
-
-    coord.request_stop()
-    coord.join(threads)
-
-    end_time = time.time()
-    time_dif = end_time - start_time
-    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+    return layer_fc5
 
 
 ################### Placeholders ###################
 x = tf.placeholder(tf.float32, shape=[None, IMG_SIZE_FLAT], name='x')
-x_image = tf.reshape(x, [-1, IMG_SIZE, IMG_SIZE, NUM_CHANNELS])
+x_image = tf.reshape(x, [-1, IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS])
 y_true = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES], name='y_true')
 y_true_cls = tf.argmax(y_true, axis=1)
 
 
-################### Optimization ###################
+################### Get next batch of data ###################
 img_batch, lbl_batch = next_batch('train')
-# test_img_batch, test_lbl_batch = next_batch('test')
 model_output = model()
-cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=model_output, labels=y_true)
-cost = tf.reduce_mean(cross_entropy)
-optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
 
 
 ################### Result ###################
@@ -218,18 +166,71 @@ correct_prediction = tf.equal(y_pred_cls, y_true_cls)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 
+################### Optimization ###################
+cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=model_output, labels=y_true)
+cost = tf.reduce_mean(cross_entropy)
+optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
+
+
 ################### Save & Restore Model ###################
 saver = tf.train.Saver()
 
 
+################### Main Function ###################
+def train_model():
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(coord=coord)
+    start_time = time.time()
+
+    for i in range(NUM_EPOCHS):
+        
+        x_batch, y_true_batch = sess.run([img_batch, lbl_batch])
+        feed_dict_train = {
+            x_image: x_batch,
+            y_true: y_true_batch
+        }
+
+        _, loss = sess.run([optimizer, cost], feed_dict=feed_dict_train)
+        
+        print_epoch_loss = "Epoch: " + str(i) + "\tLoss: " + str(loss)
+        print(print_epoch_loss)
+        f.write(print_epoch_loss+"\n")
+
+        if (i % ACC_COUNT == 0):
+            acc = sess.run(accuracy, feed_dict=feed_dict_train)
+            
+            msg = "Optimization Iteration: {0:>6}, Training Accuracy: {1:>6.1%}"
+            print(msg.format(i + 1, acc))
+            f.write(msg.format(i+1, acc)+"\n")
+
+    coord.request_stop()
+    coord.join(threads)
+
+    end_time = time.time()
+    time_dif = end_time - start_time
+    
+    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+    f.write("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+
+
 ################### Sessions ###################
 with tf.Session() as sess:
+
+    # Open file for logging performance metrics
+    f = open(model_file_name + '.txt', 'a+')
+
+    # Initialize global variables
     sess.run(tf.global_variables_initializer())
+
+    # Main function: Start training the CNN
     train_model()
     
     # Save model weights to disk
     save_path = saver.save(sess, MODEL_PATH)
     print("Model saved in file: %s" % save_path)
+
+    # Close file
+    f.close()
 
 
 ################### Comments ###################

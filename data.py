@@ -13,13 +13,10 @@ from datetime import timedelta
 DATASET_PATH = "Dataset/**/*.jpg"
 TRAIN_SIZE = 0.8
 TEST_SIZE = 0.2
-
-CLASS_LABELS = ['cardboard', 'metal', 'paper']
+CLASS_LABELS = ['cardboard', 'metal', 'paper', 'plastic', 'glass', 'trash']
 NUM_CLASSES = len(CLASS_LABELS)
-NUM_CHANNELS = 3 
-
-IMG_SIZE = 256
-IMG_SHAPE = (IMG_SIZE, IMG_SIZE)
+NUM_CHANNELS = 3
+IMG_SHAPE = (384, 512)  # (IMG_WIDTH, IMG_HEIGHT)
 
 
 ################### Collect & Split Data ###################
@@ -35,6 +32,12 @@ def collect_split_data():
             labels.append(1)
         elif CLASS_LABELS[2] in file:
             labels.append(2)
+        elif CLASS_LABELS[3] in file:
+            labels.append(3)
+        elif CLASS_LABELS[4] in file:
+            labels.append(4)
+        elif CLASS_LABELS[5] in file:
+            labels.append(5)
         else:
             print("Error: Image filename does not contain correct label.")
              
@@ -96,8 +99,12 @@ def create_tfrecord(files, labels, fname):
 
 
 def create_tfrecords(train_img, train_labels, test_img, test_labels):
+    print("Creating training dataset...")
     create_tfrecord(train_img, train_labels, 'train')
+    print("Successfully created train.tfrecords!")
+    print("Creatin testing dataset...")
     create_tfrecord(test_img, test_labels, 'test')
+    print("Successfully created test.tfrecords!")
 
 
  ################### Main ###################

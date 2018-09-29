@@ -1,40 +1,37 @@
-# Testing Accuracy
-# Time: 43sec
-# 10 Epochs
-# 64.1%, 57.8%, 68.8%, 59.4%, 67.2%, 57.8%, 60.9%, 59.4%, 53.1%, 68.8%
+# Add get_test_size function in train_trashnet and import that file here
+# Use the test_size to go through the test_data only once!
 
+import cv2      # Temp
 import glob
 import time
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from datetime import timedelta
+from operator import itemgetter
+from sklearn.metrics import confusion_matrix
 
 
 ################### Constants ###################
-CLASS_LABELS = ['cardboard', 'metal', 'paper']
+model_file_name = "Trashnet_FC4_" + str(1e-5)
+NUM_EPOCHS = 100
+
+MODEL_PATH = './Model_Info/' + model_file_name + '/model'
+CLASS_LABELS = ['cardboard', 'metal', 'paper', 'plastic', 'glass', 'trash']
 NUM_CLASSES = len(CLASS_LABELS)
+
+BATCH_SIZE = 1  # CHANGED
 NUM_CHANNELS = 3 
-
-IMG_SIZE = 256
-IMG_SIZE_FLAT = IMG_SIZE * IMG_SIZE
-IMG_SHAPE_LIST = [IMG_SIZE, IMG_SIZE, NUM_CHANNELS]
-
-# FILTER_SIZE1 = 5
-# NUM_FILTERS1 = 16
-# FILTER_SIZE2 = 5
-# NUM_FILTERS2 = 36
-# FC_SIZE = 128
-
-BATCH_SIZE = 64
+IMG_HEIGHT = 512
+IMG_WIDTH = 384
+IMG_SIZE_FLAT = IMG_HEIGHT * IMG_WIDTH
+IMG_SHAPE_LIST = [IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS]
 CAPACITY = 100
 NUM_THREADS = 4
 MIN_AFTER_DEQUEUE = 10
 
-NUM_EPOCHS = 10
-MODEL_PATH = './Model_Info/Trashnet/model'
 
-
-################### Get next batch ###################
+################### Read data ###################
 def read_from_tfrecords(fname):
 
     file = glob.glob(fname+'.tfrecords')
@@ -63,7 +60,7 @@ def read_from_tfrecords(fname):
 
 def next_batch(fname):
 
-    # CHECK: Need to compute image, label everytime or nah?
+    # CHECK: Need to compute image, label everytime?
     image, label = read_from_tfrecords(fname)
     image_batch, label_batch = tf.train.shuffle_batch([image, label], batch_size=BATCH_SIZE, capacity=CAPACITY, 
                                                 num_threads=NUM_THREADS, min_after_dequeue=MIN_AFTER_DEQUEUE, 
@@ -121,6 +118,11 @@ def model():
     layer_conv1, weights_conv1 = new_conv_layer(input=x_image, num_input_channels=NUM_CHANNELS,
                                     filter_size=11, num_filters=96, conv_strides=[1,4,4,1],
                                     max_pool_ksize=[1,3,3,1], max_pool_strides=[1,2,2,1], use_pooling=True)
+
+    # print("Type is: ", type(layer_conv1))
+    # img = layer_conv1[:, :, 3, 0]
+    # print(img)
+
     
     layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1, num_input_channels=96,
                                     filter_size=5, num_filters=192, conv_strides=[1,1,1,1],
@@ -141,65 +143,105 @@ def model():
 
     layer_fc1 = new_fc_layer(input=layer_flat, num_inputs=num_features, num_outputs=4096, use_relu=False)
     layer_fc2 = new_fc_layer(input=layer_fc1, num_inputs=4096, num_outputs=4096, use_relu=False)
-    layer_fc3 = new_fc_layer(input=layer_fc2, num_inputs=4096, num_outputs=3, use_relu=False)
+    layer_fc3 = new_fc_layer(input=layer_fc2, num_inputs=4096, num_outputs=4096, use_relu=False)
+    layer_fc4 = new_fc_layer(input=layer_fc3, num_inputs=4096, num_outputs=4096, use_relu=False)
+    layer_fc5 = new_fc_layer(input=layer_fc4, num_inputs=4096, num_outputs=NUM_CLASSES, use_relu=False)
 
-    return layer_fc3
-
-# def model():
-#     layer_conv1, weights_conv1 = new_conv_layer(input=x_image, num_input_channels=NUM_CHANNELS,
-#                                             filter_size=FILTER_SIZE1, num_filters=NUM_FILTERS1, use_pooling=True)
-#     layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1, num_input_channels=NUM_FILTERS1,
-#                                             filter_size=FILTER_SIZE2, num_filters=NUM_FILTERS2, use_pooling=True)
-
-#     layer_flat, num_features = flatten_layer(layer_conv2)
-#     layer_fc1 = new_fc_layer(input=layer_flat, num_inputs=num_features, num_outputs=FC_SIZE, use_relu=True)
-#     layer_fc2 = new_fc_layer(input=layer_fc1, num_inputs=FC_SIZE, num_outputs=NUM_CLASSES, use_relu=False)
-
-#     return layer_fc2
+    return layer_fc5
 
 
-################### Main Function ###################
-def test_accuracy():
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord)
-    start_time = time.time()    
+def calc_metrics(matrix):
+    # Diagonals of confusion matrix
+    diag = np.diagonal(matrix)
 
-    for i in range(NUM_EPOCHS):
-        print("Test iteration: " + str(i))
+    # True positives: Diagonals of confusion matrix
+    # tp = dict(enumerate(diag))
+    tp = diag
 
-        x_test_batch, y_test_batch = sess.run([test_img_batch, test_lbl_batch])
+    # False positives: Sum of corresponding column values (excluding TP)
+    col_sum = np.sum(matrix, axis=0)
+    # fp = dict(enumerate(col_sum - diag))
+    fp = col_sum - diag
 
-        feed_dict_test = {
-            x_image: x_test_batch,
-            y_true: y_test_batch
-        }
-        cls_y_pred, cls_y_true = sess.run([y_pred_cls, y_true_cls], feed_dict=feed_dict_test)
+    # False negatives: Sum of corresponding row values (excluding TP)
+    row_sum = np.sum(matrix, axis=1)
+    # fn = dict(enumerate(row_sum - diag))
+    fn = row_sum - diag
 
-        feed_dict_test_acc = {
-            y_pred_cls: cls_y_pred,
-            y_true_cls: cls_y_true
-        }
-        test_accuracy = sess.run(accuracy, feed_dict=feed_dict_test_acc)
+    # True negatives: Sum of rows & cols, excluding that class's rows & cols
+    matrix_sum = sum(row_sum)
+    # tn = dict(enumerate([matrix_sum - row_sum[i] - col_sum[i] + diag[i] for i in range(len(matrix))]))
+    tn = matrix_sum - row_sum - col_sum + diag
 
-        msg = "Accuracy on Test-Set: {0:.1%}"
-        print(msg.format(test_accuracy))
+    return tp, fp, tn, fn
+
+
+def roc_curve(tp, fp, tn, fn):
     
-    coord.request_stop()
-    coord.join(threads)
+    color_list = ['brown', 'green', 'yellow', 'black', 'pink', 'purple']
+    plt.figure(figsize=(10,10))
+    plt.xlabel("FPR", fontsize=14)
+    plt.ylabel("TPR", fontsize=14)
+    plt.title("ROC Curve", fontsize=14)
 
-    end_time = time.time()
-    time_dif = end_time - start_time
-    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+    for j in range(NUM_CLASSES):
+        tpr = [(tp[i][j] / (tp[i][j] + fn[i][j])) for i in range(NUM_EPOCHS)]
+        fpr = [(tn[i][j] / (tn[i][j] + fp[i][j])) for i in range(NUM_EPOCHS)]
+
+        tpr.sort()
+        fpr.sort()
+
+        plt.plot(fpr0, tpr0, color=color_list[j], label='class'+str(j), linewidth=2)
+    
+    plt.savefig('roc_curve')
+
+    # # Class 0 only
+    # tpr0 = [(tp[i][0] / (tp[i][0] + fn[i][0])) for i in range(NUM_EPOCHS)]
+    # fpr0 = [(tn[i][0] / (tn[i][0] + fp[i][0])) for i in range(NUM_EPOCHS)]
+
+    # # CHECK: The two lists are related!
+    # # c = list(zip(tpr0, fpr0))
+    # # c = sorted(c, key=itemgetter(0))
+    # # tpr0, fpr0 = zip(*c)
+
+    # tpr0.sort()
+    # fpr0.sort()
+
+    # plt.figure(figsize=(10,10))
+    # plt.xlabel("FPR", fontsize=14)
+    # plt.ylabel("TPR", fontsize=14)
+    # plt.title("ROC Curve", fontsize=14)
+
+    # plt.plot(fpr0, tpr0, color='green', linewidth=2)
+    # # plt.plot([0,1], [0,1], color='navy', linewidth=2, linestyle='--')
+    # plt.savefig('roc_curve')
+
+
+def pr_curve(tp, fp, tn, fn):
+    # Class 0 only
+    precision = [(tp[i][0] / (tp[i][0] + fp[i][0])) for i in range(NUM_EPOCHS)]
+    recall = [(tp[i][0] / (tp[i][0] + fn[i][0])) for i in range(NUM_EPOCHS)]
+    
+    # precision.sort()
+    # recall.sort()
+
+    plt.figure(figsize=(10,10))
+    plt.xlabel("Recall", fontsize=14)
+    plt.ylabel("Precision", fontsize=14)
+    plt.title("PR Curve", fontsize=14)
+
+    plt.plot(recall, precision, color='green', linewidth=2)
+    plt.savefig('pr_curve')
 
 
 ################### Placeholders ###################
 x = tf.placeholder(tf.float32, shape=[None, IMG_SIZE_FLAT], name='x')
-x_image = tf.reshape(x, [-1, IMG_SIZE, IMG_SIZE, NUM_CHANNELS])
+x_image = tf.reshape(x, [-1, IMG_HEIGHT, IMG_WIDTH, NUM_CHANNELS])
 y_true = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES], name='y_true')
 y_true_cls = tf.argmax(y_true, axis=1)
 
 
-################### Optimization ###################
+################### Get next batch of data ###################
 test_img_batch, test_lbl_batch = next_batch('test')
 model_output = model()
 
@@ -218,15 +260,79 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 saver = tf.train.Saver()
 
 
+################### Main Function ###################
+def test_accuracy():
+    tp = np.zeros([NUM_EPOCHS, NUM_CLASSES])
+    fp = np.zeros([NUM_EPOCHS, NUM_CLASSES])
+    tn = np.zeros([NUM_EPOCHS, NUM_CLASSES])
+    fn = np.zeros([NUM_EPOCHS, NUM_CLASSES])
+
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(coord=coord)
+    start_time = time.time()    
+
+    for i in range(NUM_EPOCHS):
+        x_test_batch, y_test_batch = sess.run([test_img_batch, test_lbl_batch])
+        feed_dict_test = {
+            x_image: x_test_batch,
+            y_true: y_test_batch
+        }
+        cls_y_pred, cls_y_true = sess.run([y_pred_cls, y_true_cls], feed_dict=feed_dict_test)
+
+        feed_dict_test_acc = {
+            y_pred_cls: cls_y_pred,
+            y_true_cls: cls_y_true
+        }
+        test_accuracy = sess.run(accuracy, feed_dict=feed_dict_test_acc)
+
+        # Print to stdout & file
+        # print_epoch_accuracy = "Epoch: " + str(i) + "\tAccuracy: {0:.1%}"
+        # print(print_epoch_accuracy.format(test_accuracy))
+
+        image = sess.run(layer_conv1)
+        # print("Type is: ", type(layer_conv1))
+        img = image[:, :, 3, 0]
+        print(img)
+
+        break
+        # f.write(print_epoch_accuracy.format(test_accuracy)+"\n")
+
+        # # Calculate tp, fp, tn, fn
+        # matrix = confusion_matrix(cls_y_true, cls_y_pred)
+        # print(matrix)
+        # tp[i], fp[i], tn[i], fn[i] = calc_metrics(matrix)
+
+    # # Plot roc_curve & pr_curve
+    # roc_curve(tp, fp, tn, fn)
+    # pr_curve(tp, fp, tn, fn)
+    
+    coord.request_stop()
+    coord.join(threads)
+
+    end_time = time.time()
+    time_dif = end_time - start_time
+    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+    # f.write("Time usage: " + str(timedelta(seconds=int(round(time_dif))))+"\n")
+
+
 ################### Sessions ###################
 with tf.Session() as sess:
+
+    # Open file for logging performance metrics
+    # f = open(model_file_name + '_test.txt', 'a+')
+
+    # Initialize global variables
     sess.run(tf.global_variables_initializer())
+
     # Restore model weights from previously saved model
     saver.restore(sess, MODEL_PATH)
     print("Model restored from file: %s" % MODEL_PATH)
 
+    # Main function: Test CNN on testing data
     test_accuracy()   
 
+    # Close file
+    # f.close()
 
 ################### Comments ###################
 # 1.
